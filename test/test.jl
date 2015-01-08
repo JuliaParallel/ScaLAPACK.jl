@@ -17,7 +17,7 @@ ic = ScaLAPACK.sl_init(8, 8)
 nprow, npcol, myrow, mycol = ScaLAPACK.blacs_gridinfo(ic)
 np = ScaLAPACK.numroc(n, nb, myrow, 0, nprow)
 nq = ScaLAPACK.numroc(n, nb, mycol, 0, npcol)
-println("myrow: $myrow, mycol: $mycol, nb: $nb, np: $np, nq: $nq")
+print("myrow: $myrow, mycol: $mycol, nb: $nb, np: $np, nq: $nq\n")
 
 if nprow >= 0 && npcol >= 0
     # Get DArray info
