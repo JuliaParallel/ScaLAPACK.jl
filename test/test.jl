@@ -6,12 +6,13 @@ MPI.Init()
 Base.disable_threaded_libs()
 
 # problem size
-n = 10000
+n = 5000
 bf = 100
 nb = div(n, bf)
 
 # initialize grid
-ic = ScaLAPACK.sl_init(8, 8)
+id, nprocs = ScaLAPACK.blacs_pinfo()
+ic = ScaLAPACK.sl_init(itrunc(sqrt(nprocs)), div(nprocs, itrunc(sqrt(nprocs))))
 
 # who am I?
 nprow, npcol, myrow, mycol = ScaLAPACK.blacs_gridinfo(ic)
