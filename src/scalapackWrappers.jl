@@ -15,7 +15,7 @@ end
 function descinit(m::Integer, n::Integer, mb::Integer, nb::Integer, irsrc::Integer, icsrc::Integer, ictxt::Integer, lld::Integer)
 
     # extract values
-    nprow, npcol, myrow, mycol = blacs_gridinfo(ictxt)
+    nprow, npcol, myrow, mycol = BLACS.gridinfo(ictxt)
     locrm = numroc(m, mb, myrow, irsrc, nprow)
 
     # checks
@@ -25,7 +25,7 @@ function descinit(m::Integer, n::Integer, mb::Integer, nb::Integer, irsrc::Integ
     nb > 0 || throw(ArgumentError("second dimension blocking factor must be positive"))
     0 <= irsrc < nprow || throw(ArgumentError("process row must be positive and less that grid size"))
     0 <= irsrc < nprow || throw(ArgumentError("process column must be positive and less that grid size"))
-    lld >= locrm || throw(ArgumentError("leading dimension of local array is too small"))
+    # lld >= locrm || throw(ArgumentError("leading dimension of local array is too small"))
 
     # allocation
     desc = Array(Int32, 9)
@@ -45,36 +45,83 @@ function descinit(m::Integer, n::Integer, mb::Integer, nb::Integer, irsrc::Integ
     return desc
 end
 
-function pdgesvd!(jobu::Char, jobvt::Char, m::Integer, n::Integer, A::StridedMatrix{Float64}, ia::Integer, ja::Integer, desca::Vector{Int32}, s::StridedVector{Float64}, U::StridedMatrix{Float64}, iu::Integer, ju::Integer, descu::Vector{Int32}, Vt::Matrix{Float64}, ivt::Integer, jvt::Integer, descvt::Vector{Int32})
-    # extract values
+# SVD solver
+for (fname, elty) in ((:psgesvd_, :Float32),
+                      (:pdgesvd_, :Float64))
+    @eval begin
+        function pxgesvd!(jobu::Char, jobvt::Char, m::Integer, n::Integer, A::StridedMatrix{$elty}, ia::Integer, ja::Integer, desca::Vector{Int32}, s::StridedVector{$elty}, U::StridedMatrix{$elty}, iu::Integer, ju::Integer, descu::Vector{Int32}, Vt::Matrix{$elty}, ivt::Integer, jvt::Integer, descvt::Vector{Int32})
+            # extract values
 
-    # check
+            # check
 
-    # allocate
-    info = Array(Int32, 1)
-    work = Array(Float64, 1)
-    lwork = -1
+            # allocate
+            info = Array(Int32, 1)
+            work = Array($elty, 1)
+            lwork = -1
 
-    # ccall
-    for i = 1:2
-        ccall((:pdgesvd_, libscalapack), Void,
-            (Ptr{Uint8}, Ptr{Uint8}, Ptr{Int32}, Ptr{Int32},
-             Ptr{Float64}, Ptr{Int32}, Ptr{Int32}, Ptr{Int32},
-             Ptr{Float64}, Ptr{Float64}, Ptr{Int32}, Ptr{Int32},
-             Ptr{Int32}, Ptr{Float64}, Ptr{Int32}, Ptr{Int32},
-             Ptr{Int32}, Ptr{Float64}, Ptr{Int32}, Ptr{Int32}),
-            &jobu, &jobvt, &m, &n,
-            A, &ia, &ja, desca,
-            s, U, &iu, &ju,
-            descu, Vt, &ivt, &jvt,
-            descvt, work, &lwork, info)
-        if i == 1
-            lwork = int(work[1])
-            work = Array(Float64, lwork)
+            # ccall
+            for i = 1:2
+                ccall(($(string(fname)), libscalapack), Void,
+                    (Ptr{Uint8}, Ptr{Uint8}, Ptr{Int32}, Ptr{Int32},
+                     Ptr{$elty}, Ptr{Int32}, Ptr{Int32}, Ptr{Int32},
+                     Ptr{$elty}, Ptr{$elty}, Ptr{Int32}, Ptr{Int32},
+                     Ptr{Int32}, Ptr{$elty}, Ptr{Int32}, Ptr{Int32},
+                     Ptr{Int32}, Ptr{$elty}, Ptr{Int32}, Ptr{Int32}),
+                    &jobu, &jobvt, &m, &n,
+                    A, &ia, &ja, desca,
+                    s, U, &iu, &ju,
+                    descu, Vt, &ivt, &jvt,
+                    descvt, work, &lwork, info)
+                if i == 1
+                    lwork = convert(Int32, work[1])
+                    work = Array($elty, lwork)
+                end
+            end
+
+            info[1] > 0 && throw(ScaLAPACKException(info[1]))
+
+            return U, s, Vt
         end
     end
+end
+for (fname, elty, relty) in ((:pcgesvd_, :Complex64, :Float32),
+                             (:pzgesvd_, :Complex128, :Float64))
+    @eval begin
+        function pxgesvd!(jobu::Char, jobvt::Char, m::Integer, n::Integer, A::StridedMatrix{$elty}, ia::Integer, ja::Integer, desca::Vector{Int32}, s::StridedVector{$relty}, U::StridedMatrix{$elty}, iu::Integer, ju::Integer, descu::Vector{Int32}, Vt::Matrix{$elty}, ivt::Integer, jvt::Integer, descvt::Vector{Int32})
+            # extract values
 
-    info[1] > 0 && error("ScaLAPACK error code $(info[1])")
+            # check
 
-    return U, s, Vt
+            # allocate
+            info = Array(Int32, 1)
+            work = Array($elty, 1)
+            rwork = Array($relty, 1 + 4*max(m, n))
+            lwork = -1
+
+            # ccall
+            for i = 1:2
+                ccall(($(string(fname)), libscalapack), Void,
+                    (Ptr{Uint8}, Ptr{Uint8}, Ptr{Int32}, Ptr{Int32},
+                     Ptr{$elty}, Ptr{Int32}, Ptr{Int32}, Ptr{Int32},
+                     Ptr{$relty}, Ptr{$elty}, Ptr{Int32}, Ptr{Int32},
+                     Ptr{Int32}, Ptr{$elty}, Ptr{Int32}, Ptr{Int32},
+                     Ptr{Int32}, Ptr{$elty}, Ptr{Int32}, Ptr{$relty},
+                     Ptr{Int32}),
+                    &jobu, &jobvt, &m, &n,
+                    A, &ia, &ja, desca,
+                    s, U, &iu, &ju,
+                    descu, Vt, &ivt, &jvt,
+                    descvt, work, &lwork, rwork,
+                    info)
+                if i == 1
+                    lwork = convert(Int32, work[1])
+                    work = Array($elty, lwork)
+                end
+            end
+
+            info[1] > 0 && throw(ScaLAPACKException(info[1]))
+
+            return U, s, Vt
+        end
+    end
 end
