@@ -87,7 +87,7 @@ end
 for (fname, elty, relty) in ((:pcgesvd_, :Complex64, :Float32),
                              (:pzgesvd_, :Complex128, :Float64))
     @eval begin
-        function pxgesvd!(jobu::Char, jobvt::Char, m::Integer, n::Integer, A::StridedMatrix{$elty}, ia::Integer, ja::Integer, desca::Vector{Int32}, s::StridedVector{$relty}, U::StridedMatrix{$elty}, iu::Integer, ju::Integer, descu::Vector{Int32}, Vt::Matrix{$elty}, ivt::Integer, jvt::Integer, descvt::Vector{Int32})
+        function pxgesvd!(jobu::Char, jobvt::Char, m::Integer, n::Integer, A::Matrix{$elty}, ia::Integer, ja::Integer, desca::Vector{Int32}, s::Vector{$relty}, U::Matrix{$elty}, iu::Integer, ju::Integer, descu::Vector{Int32}, Vt::Matrix{$elty}, ivt::Integer, jvt::Integer, descvt::Vector{Int32})
             # extract values
 
             # check
@@ -125,3 +125,22 @@ for (fname, elty, relty) in ((:pcgesvd_, :Complex64, :Float32),
         end
     end
 end
+
+for (fname, elty) in ((:psgemr2d_, :Float32),
+                      (:pdgemr2d_, :Float64),
+                      (:pcgemr2d_, :Complex64),
+                      (:pzgemr2d_, :Complex128))
+    @eval begin
+        function pxgemr2d!(m::Integer, n::Integer, A::Matrix{$elty}, ia::Integer, ja::Integer, desca::Vector{Int32}, B::Matrix{$elty}, ib::Integer, jb::Integer, descb::Vector{Int32}, ictxt::Integer)
+
+            ccall(($(string(fname)), libscalapack), Void,
+                (Ptr{Int32}, Ptr{Int32}, Ptr{$elty}, Ptr{Int32},
+                 Ptr{Int32}, Ptr{Int32}, Ptr{$elty}, Ptr{Int32},
+                 Ptr{Int32}, Ptr{Int32}, Ptr{Int32}),
+                &m, &n, A, &ia,
+                &ja, desca, B, &ib,
+                &jb, descb, &ictxt)
+        end
+    end
+end
+
