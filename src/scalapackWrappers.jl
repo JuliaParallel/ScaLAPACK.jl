@@ -1,3 +1,8 @@
+#############
+# Auxiliary #
+#############
+
+# Initialize
 function sl_init(nprow::Integer, npcol::Integer)
     ictxt = Array(Int32, 1)
     ccall((:sl_init_, libscalapack), Void,
@@ -6,12 +11,14 @@ function sl_init(nprow::Integer, npcol::Integer)
     return ictxt[1]
 end
 
+# Calculate size of local array
 function numroc(n::Integer, nb::Integer, iproc::Integer, isrcproc::Integer, nprocs::Integer)
     ccall((:numroc_, libscalapack), Int32,
         (Ptr{Int32}, Ptr{Int32}, Ptr{Int32}, Ptr{Int32}, Ptr{Int32}),
         &n, &nb, &iproc, &isrcproc, &nprocs)
 end
 
+# Array descriptor
 function descinit(m::Integer, n::Integer, mb::Integer, nb::Integer, irsrc::Integer, icsrc::Integer, ictxt::Integer, lld::Integer)
 
     # extract values
@@ -43,6 +50,52 @@ function descinit(m::Integer, n::Integer, mb::Integer, nb::Integer, irsrc::Integ
     info[1] == 0 || error("input argument $(info[1]) has illegal value")
 
     return desc
+end
+
+# Redistribute arrays
+for (fname, elty) in ((:psgemr2d_, :Float32),
+                      (:pdgemr2d_, :Float64),
+                      (:pcgemr2d_, :Complex64),
+                      (:pzgemr2d_, :Complex128))
+    @eval begin
+        function pxgemr2d!(m::Integer, n::Integer, A::Matrix{$elty}, ia::Integer, ja::Integer, desca::Vector{Int32}, B::Matrix{$elty}, ib::Integer, jb::Integer, descb::Vector{Int32}, ictxt::Integer)
+
+            ccall(($(string(fname)), libscalapack), Void,
+                (Ptr{Int32}, Ptr{Int32}, Ptr{$elty}, Ptr{Int32},
+                 Ptr{Int32}, Ptr{Int32}, Ptr{$elty}, Ptr{Int32},
+                 Ptr{Int32}, Ptr{Int32}, Ptr{Int32}),
+                &m, &n, A, &ia,
+                &ja, desca, B, &ib,
+                &jb, descb, &ictxt)
+        end
+    end
+end
+
+##################
+# Linear Algebra #
+##################
+
+# Matmul
+for (fname, elty) in ((:psgemm_, :Float32),
+                      (:pdgemm_, :Float64),
+                      (:pcgemm_, :Complex64),
+                      (:pzgemm_, :Complex128))
+    @eval begin
+        function pdgemm!(transa::Char, transb::Char, m::Integer, n::Integer, k::Integer, α::$elty, A::Matrix{$elty}, ia::Integer, ja::Integer, desca::Vector{Int32}, B::Matrix{$elty}, ib::Integer, jb::Integer, descb::Vector{Int32}, β::$elty, C::Matrix{$elty}, ic::Integer, jc::Integer, descc::Vector{Int32})
+
+            ccall(($(string(fname)), libscalapack), Void,
+                (Ptr{UInt8}, Ptr{UInt8}, Ptr{Int32}, Ptr{Int32},
+                 Ptr{Int32}, Ptr{$elty}, Ptr{$elty}, Ptr{Int32},
+                 Ptr{Int32}, Ptr{Int32}, Ptr{$elty}, Ptr{Int32},
+                 Ptr{Int32}, Ptr{Int32}, Ptr{$elty}, Ptr{$elty},
+                 Ptr{Int32}, Ptr{Int32}, Ptr{Int32}),
+                &transa, &transb, &m, &n,
+                &k, &α, A, &ia,
+                &ja, desca, B, &ib,
+                &jb, descb, &β, C,
+                &ic, &jc, descc)
+        end
+    end
 end
 
 # SVD solver
@@ -122,24 +175,6 @@ for (fname, elty, relty) in ((:pcgesvd_, :Complex64, :Float32),
             info[1] > 0 && throw(ScaLAPACKException(info[1]))
 
             return U, s, Vt
-        end
-    end
-end
-
-for (fname, elty) in ((:psgemr2d_, :Float32),
-                      (:pdgemr2d_, :Float64),
-                      (:pcgemr2d_, :Complex64),
-                      (:pzgemr2d_, :Complex128))
-    @eval begin
-        function pxgemr2d!(m::Integer, n::Integer, A::Matrix{$elty}, ia::Integer, ja::Integer, desca::Vector{Int32}, B::Matrix{$elty}, ib::Integer, jb::Integer, descb::Vector{Int32}, ictxt::Integer)
-
-            ccall(($(string(fname)), libscalapack), Void,
-                (Ptr{Int32}, Ptr{Int32}, Ptr{$elty}, Ptr{Int32},
-                 Ptr{Int32}, Ptr{Int32}, Ptr{$elty}, Ptr{Int32},
-                 Ptr{Int32}, Ptr{Int32}, Ptr{Int32}),
-                &m, &n, A, &ia,
-                &ja, desca, B, &ib,
-                &jb, descb, &ictxt)
         end
     end
 end
