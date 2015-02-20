@@ -72,12 +72,12 @@ function A_mul_B!{T<:BlasFloat}(α::T, A::DArray{T,2}, B::DArray{T,2}, β::T, C:
                 Cnew = Array(T, npCnew, nqCnew)
                 pxgemr2d!(mC, nC, localpart(C), 1, 1, dC, Cnew, 1, 1, dCnew, ic)
 
-
                 # calculate
                 pdgemm!('N', 'N', mC, nC, k, α, Anew, 1, 1, dAnew, Bnew, 1, 1, dBnew, β, Cnew, 1, 1, dCnew)
 
                 # move result back to C
                 pxgemr2d!(mC, nC, Cnew, 1, 1, dCnew, localpart(C), 1, 1, dC, ic)
+                MPI.Barrier(MPI.COMM_WORLD)
 
                 # cleanup
                 BLACS.gridexit(ic)
