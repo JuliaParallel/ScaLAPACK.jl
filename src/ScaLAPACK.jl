@@ -2,9 +2,10 @@ using MPI
 
 module ScaLAPACK
 
-using Base.LinAlg: BlasFloat
+using Base.LinAlg: BlasFloat, BlasReal
 
 using MPI
+# , DistributedArrays
 
 if myid() > 1
     MPI.Initialized() || MPI.Init()
@@ -14,8 +15,8 @@ immutable ScaLAPACKException <: Exception
     info::Int32
 end
 
-# const libscalapack = "/usr/local/lib/libscalapack.dylib"
-const libscalapack = "/usr/lib/libscalapack-openmpi.so"
+const libscalapack = "/usr/local/lib/libscalapack.dylib"
+# const libscalapack = "/usr/lib/libscalapack-openmpi.so"
 
 include("blacs.jl")
 include("scalapackWrappers.jl")

@@ -7,7 +7,7 @@ function check_distribution{T}(A::DArray{T,2})
     true
 end
 
-function A_mul_B!{T<:BlasFloat}(α::T, A::DArray{T,2}, B::DArray{T,2}, β::T, C::DArray{T,2}, blocksize1 = max(round(Integer, size(C, 1)/100), 10), blocksize2 = max(round(Integer, size(C, 2)/100), 10))
+function A_mul_B!{T<:BlasFloat}(α::T, A::DArray{T,2,Matrix{T}}, B::DArray{T,2,Matrix{T}}, β::T, C::DArray{T,2,Matrix{T}}, blocksize1 = max(round(Integer, size(C, 1)/100), 10), blocksize2 = max(round(Integer, size(C, 2)/100), 10))
 
     # extract
     mA, nA = size(A)
@@ -87,7 +87,49 @@ function A_mul_B!{T<:BlasFloat}(α::T, A::DArray{T,2}, B::DArray{T,2}, β::T, C:
     C
 end
 
-function svdvals!{T<:BlasFloat}(A::DArray{T,2}, blocksize::Integer = max(10, round(Integer, min(size(A...)))))
+function eigvals!{T<:BlasReal}(d::Vector{T}, e::Vector{T}, blocksize = max(div(length(d), 100), 10))
+
+    # Extract
+    n = length(d)
+
+    # Check
+    if length(e) != n - 1
+        throw(DimensionMismatch("off diagonal vector must have length $(n-1) but had length $(length(e))"))
+    end
+
+    @sync for p in MPI.workers()
+        # initialize grid
+        @spawnat p begin
+
+            id, nprocs = BLACS.pinfo()
+            ic = BLACS.gridinit(BLACS.get(0, 0), 'c', mGrid, nGrid)
+
+            # who am I?
+            nprow, npcol, myrow, mycol = BLACS.gridinfo(ic)
+            np = numroc(m, blocksize, myrow, 0, nprow)
+            nq = numroc(n, blocksize, mycol, 0, npcol)
+
+            # print("myrow: $myrow, mycol: $mycol, mbB: $mbB, npB: $npB, nqB: $nqB\n")
+
+            if nprow >= 0 && npcol >= 0
+
+                dQ = descinit(n, n, blocksize, blocksize, 0, 0, ic, npB)
+
+                # calculate DSVD
+                λ, V = pxstdnc!('N', n, d, e, Array(T, 0, 0), 1, 1)
+
+                # show result
+                # myrow == 0 && mycol == 0 && println(s[1:3])
+
+                # clean up
+                BLACS.gridexit(ic)
+            end
+        end
+    end
+    return d
+end
+
+function svdvals!{T<:BlasFloat}(A::DArray{T,2,Matrix{T}}, blocksize::Integer = max(10, round(Integer, minimum(size(A))/10)))
 
     # problem size
     m, n = size(A)
@@ -98,8 +140,6 @@ function svdvals!{T<:BlasFloat}(A::DArray{T,2}, blocksize::Integer = max(10, rou
 
     # Check that array distribution is feasible for ScaLAPACK
     check_distribution(A)
-
-    # mb == nb || throw(DimensionMismatch("solver requires row and column block sizes to be the same"))
 
     vals = RemoteRef[]
 
@@ -127,7 +167,6 @@ function svdvals!{T<:BlasFloat}(A::DArray{T,2}, blocksize::Integer = max(10, rou
 
                 B = Array(T, npB, nqB)
                 pxgemr2d!(m, n, localpart(A), 1, 1, dA, B, 1, 1, dB, ic)
-                # display(B)
 
                 # calculate DSVD
                 U, s, Vt = pxgesvd!('N', 'N', m, n, B, 1, 1, dB, Array(typeof(real(one(T))), min(m, n)), Array(T, 0, 0), 0, 0, dB, Array(T, 0, 0), 0, 0, dB)

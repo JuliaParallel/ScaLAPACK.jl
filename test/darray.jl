@@ -5,6 +5,7 @@ m, n = 80, 80
 
 using Base.Test
 using MPI
+using DistributedArrays
 
 manager = MPIManager(np = p)
 addprocs(manager)
