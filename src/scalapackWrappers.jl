@@ -170,7 +170,7 @@ for (fname, elty) in ((:psgesvd_, :Float32),
                 end
             end
 
-            if info[1] > 0
+            if 0 < info[1] <= min(m,n)
                 throw(ScaLAPACKException(info[1]))
             end
 

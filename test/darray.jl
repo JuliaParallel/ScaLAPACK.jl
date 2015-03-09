@@ -13,22 +13,22 @@ addprocs(manager)
 
 debug && println("SVD tests")
 debug && println("eltype: Float64")
-A = DArray(I -> randn(map(length,I)), (m, n))
+A = DArray(I -> randn(map(length,I)), (m, n), manager)
 B = convert(Array, A)
 @test_approx_eq svdvals!(A) svdvals!(B)
 
 debug && println("eltype: Float32")
-A = DArray(I -> float32(randn(map(length,I))), (m, n))
+A = DArray(I -> float32(randn(map(length,I))), (m, n), manager)
 B = convert(Array, A)
 @test_approx_eq svdvals!(A) svdvals!(B)
 
 debug && println("eltype: Complex64")
-A = DArray(I -> complex64(complex(randn(map(length,I)), randn(map(length,I)))), (m, n))
+A = DArray(I -> complex64(complex(randn(map(length,I)), randn(map(length,I)))), (m, n), manager)
 B = convert(Array, A)
 @test_approx_eq svdvals!(A) svdvals!(B)
 
 debug && println("eltype: Complex128")
-A = DArray(I -> complex(randn(map(length,I)), randn(map(length,I))), (m, n))
+A = DArray(I -> complex(randn(map(length,I)), randn(map(length,I))), (m, n), manager)
 B = convert(Array, A)
 @test_approx_eq svdvals!(A) svdvals!(B)
 

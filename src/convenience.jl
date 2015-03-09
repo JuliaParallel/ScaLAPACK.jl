@@ -4,6 +4,9 @@ function check_distribution{T}(A::DArray{T,2})
     if !all(diff(diff(A.cuts[1]))[1:end-1] .== 0) || !all(diff(diff(A.cuts[2]))[1:end-1] .== 0)
         throw(ArgumentError("the distributions of the array does not fit to the requirements of ScaLAPACK. All blocks must have the same size except for the last in row and column"))
     end
+    if !(all(diff(Int[remotecall_fetch(p, MPI.Comm_rank, MPI.COMM_WORLD) for p in procs(A)]) .== 1))
+        throw(ArgumentError("the ordering of the Julia processes and the MPI ranks must be the same. Consider constructing you DArray with an MPIManager argument instead of process numbers."))
+    end
     true
 end
 
@@ -166,7 +169,8 @@ function svdvals!{T<:BlasFloat}(A::DArray{T,2,Matrix{T}}, blocksize::Integer = m
                 dB = descinit(m, n, mbB, mbB, 0, 0, ic, npB)
 
                 B = Array(T, npB, nqB)
-                pxgemr2d!(m, n, localpart(A), 1, 1, dA, B, 1, 1, dB, ic)
+                lA = localpart(A)
+                pxgemr2d!(m, n, lA, 1, 1, dA, B, 1, 1, dB, ic)
 
                 # calculate DSVD
                 U, s, Vt = pxgesvd!('N', 'N', m, n, B, 1, 1, dB, Array(typeof(real(one(T))), min(m, n)), Array(T, 0, 0), 0, 0, dB, Array(T, 0, 0), 0, 0, dB)
