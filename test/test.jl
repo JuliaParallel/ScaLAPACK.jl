@@ -6,8 +6,8 @@ MPI.Init()
 Base.disable_threaded_libs()
 
 # problem size
-m = 8000
-n = 5000
+m = 800
+n = 500
 # bf = 3
 # nb = div(m, bf)
 nb = 100
@@ -27,10 +27,13 @@ if nprow >= 0 && npcol >= 0
     dA = ScaLAPACK.descinit(m, n, nb, nb, 0, 0, ic, np)
 
     # allocate local array
-    A = randn(int(np), int(nq))
+    # A = randn(int(np), int(nq))
+    # A = float32(randn(int(np), int(nq)))
+    # A = complex(randn(int(np), int(nq)), randn(int(np), int(nq)))
+    A = complex64(complex(randn(int(np), int(nq)), randn(int(np), int(nq))))
 
     # calculate DSVD
-    V, s, U = ScaLAPACK.pxgesvd!('N', 'N', m, n, A, 1, 1, dA, Array(Float64, n), Array(Float64, 0, 0), 0, 0, dA, Array(Float64, 0, 0), 0, 0, dA)
+    V, s, U = ScaLAPACK.pxgesvd!('N', 'N', m, n, A, 1, 1, dA, Array(typeof(real(A[1])), n), Array(eltype(A), 1, 1), 0, 0, dA, Array(eltype(A), 1, 1), 0, 0, dA)
 
     # show result
     if myrow == 0 && mycol == 0
