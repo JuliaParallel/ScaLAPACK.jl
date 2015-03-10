@@ -115,7 +115,7 @@ for (fname, elty) in ((:psstedc_, :Float32),
 
             for i = 1:2
                 ccall(($(string(fname)), libscalapack), Void,
-                    (Ptr{UInt8}, Ptr{UInt8}, Ptr{$elty}, Ptr{$elty},
+                    (Ptr{UInt8}, Ptr{ScaInt}, Ptr{$elty}, Ptr{$elty},
                      Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{$ScaInt}),
@@ -131,7 +131,9 @@ for (fname, elty) in ((:psstedc_, :Float32),
                     iwork = Array(ScaInt, liwork)
                 end
             end
-
+            if info[1] != 0
+                throw(ScaLAPACKException(info[1]))
+            end
             return d, Q
         end
     end
@@ -213,7 +215,9 @@ for (fname, elty, relty) in ((:pcgesvd_, :Complex64, :Float32),
                 end
             end
 
-            info[1] > 0 && throw(ScaLAPACKException(info[1]))
+            if 0 < info[1] <= min(m,n)
+                throw(ScaLAPACKException(info[1]))
+            end
 
             return U, s, Vt
         end

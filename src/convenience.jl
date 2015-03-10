@@ -90,36 +90,40 @@ function A_mul_B!{T<:BlasFloat}(α::T, A::DArray{T,2,Matrix{T}}, B::DArray{T,2,M
     C
 end
 
-function eigvals!{T<:BlasReal}(d::Vector{T}, e::Vector{T}, blocksize = max(div(length(d), 100), 10))
+function eigvals!{T<:BlasReal}(A::SymTridiagonal{T}, manager::MPIManager, blocksize = max(div(length(d), 100), 10))
 
     # Extract
+    d = A.dv
+    e = A.ev
     n = length(d)
+    nGrid = round(Integer, sqrt(length(procs(manager))))
 
     # Check
     if length(e) != n - 1
         throw(DimensionMismatch("off diagonal vector must have length $(n-1) but had length $(length(e))"))
     end
 
+    vals = RemoteRef[]
     @sync for p in MPI.workers()
         # initialize grid
-        @spawnat p begin
+        valsp = @spawnat p begin
 
             id, nprocs = BLACS.pinfo()
-            ic = BLACS.gridinit(BLACS.get(0, 0), 'c', mGrid, nGrid)
+            ic = BLACS.gridinit(BLACS.get(0, 0), 'c', nGrid, nGrid)
 
             # who am I?
             nprow, npcol, myrow, mycol = BLACS.gridinfo(ic)
-            np = numroc(m, blocksize, myrow, 0, nprow)
-            nq = numroc(n, blocksize, mycol, 0, npcol)
+            np = numroc(n, blocksize, myrow, 0, nprow)
+            # nq = numroc(n, blocksize, mycol, 0, npcol)
 
             # print("myrow: $myrow, mycol: $mycol, mbB: $mbB, npB: $npB, nqB: $nqB\n")
 
             if nprow >= 0 && npcol >= 0
 
-                dQ = descinit(n, n, blocksize, blocksize, 0, 0, ic, npB)
+                dQ = descinit(n, n, blocksize, blocksize, 0, 0, ic, np)
 
-                # calculate DSVD
-                λ, V = pxstdnc!('N', n, d, e, Array(T, 0, 0), 1, 1)
+                # call eigensolver
+                λ, V = pxstedc!('I', n, d, e, Array(T, np, np), 1, 1, dQ)
 
                 # show result
                 # myrow == 0 && mycol == 0 && println(s[1:3])
@@ -127,9 +131,11 @@ function eigvals!{T<:BlasReal}(d::Vector{T}, e::Vector{T}, blocksize = max(div(l
                 # clean up
                 BLACS.gridexit(ic)
             end
+            λ
         end
+        push!(vals, valsp)
     end
-    return d
+    return fetch(vals[1])
 end
 
 function svdvals!{T<:BlasFloat}(A::DArray{T,2,Matrix{T}}, blocksize::Integer = max(10, round(Integer, minimum(size(A))/10)))
