@@ -154,7 +154,7 @@ for (fname, elty) in ((:psgesvd_, :Float32),
             # ccall
             for i = 1:2
                 ccall(($(string(fname)), libscalapack), Void,
-                    (Ptr{Uint8}, Ptr{Uint8}, Ptr{ScaInt}, Ptr{ScaInt},
+                    (Ptr{UInt8}, Ptr{UInt8}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{$elty}, Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt},
@@ -195,7 +195,7 @@ for (fname, elty, relty) in ((:pcgesvd_, :Complex64, :Float32),
             # ccall
             for i = 1:2
                 ccall(($(string(fname)), libscalapack), Void,
-                    (Ptr{Uint8}, Ptr{Uint8}, Ptr{ScaInt}, Ptr{ScaInt},
+                    (Ptr{UInt8}, Ptr{UInt8}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{$relty}, Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt},
                      Ptr{ScaInt}, Ptr{$elty}, Ptr{ScaInt}, Ptr{ScaInt},

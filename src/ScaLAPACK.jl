@@ -2,6 +2,8 @@ using MPI
 
 module ScaLAPACK
 
+using Compat
+
 using Base.LinAlg: BlasFloat, BlasReal
 
 using MPI, DistributedArrays
@@ -30,8 +32,8 @@ immutable ScaLAPACKException <: Exception
     info::Int32
 end
 
-const libscalapack = "/Users/andreasnoack/Downloads/scalapack-2.0.2/build/lib/libscalapack.dylib"
-# const libscalapack = "/usr/local/lib/libscalapack.dylib"
+# const libscalapack = "/Users/andreasnoack/Downloads/scalapack-2.0.2/build/lib/libscalapack.dylib"
+const libscalapack = "/usr/local/lib/libscalapack.dylib"
 # const libscalapack = "/usr/lib/libscalapack-openmpi.so"
 
 include("blacs.jl")
